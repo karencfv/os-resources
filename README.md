@@ -18,7 +18,7 @@ This repository contains several links to resources related to operating systems
 
 [OS tutorial](https://github.com/cfenollosa/os-tutorial). An implementation of the above document without the theory.
 
-[Writing an OS in Rust](https://os.phil-opp.com/). This blog series creates a small operating system in the Rust programming language.
+[Writing an OS in Rust](https://os.phil-opp.com/). This blog series creates a small operating system in the Rust programming language. Exploratory work based on this tutorial can be found in the [min-rust-os](./min-rust-os) directory.
 
 ## Academic papers
 
