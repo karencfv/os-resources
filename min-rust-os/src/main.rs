@@ -19,10 +19,23 @@ fn panic(_info: &PanicInfo) -> ! {
     loop {}
 }
 
+static HELLO: &[u8] = b"Hi from the minimal OS :)";
 // The no_mangling attribute disables name mangling so the function name is `start()`
 // instead of some random function name.
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
+    // The VGA buffer is located as address 0xb8000
+    let vga_buffer = 0xb8000 as *mut u8;
+
+    for (i, &byte) in HELLO.iter().enumerate() {
+        // Unsafe is used because Rust can't prove that these raw pointers are valid
+        unsafe {
+            // The offset() method is used to write the string byte and
+            // corresponding colour byte (0xb is cyan)
+            *vga_buffer.offset(i as isize * 2) = byte;
+            *vga_buffer.offset(i as isize * 2 + 1) = 0xb;
+        }
+    }
     // this function is the entry point, since the linker looks for a function
     // named `_start` by default
     loop {}

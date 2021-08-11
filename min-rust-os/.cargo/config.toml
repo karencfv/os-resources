@@ -1,0 +1,15 @@
+[build]
+target = "x86_64-min-rust-os.json"
+
+# bootimage runner is usable as a runner executable. Which means `cargo run` can 
+# be used to start up QEMU directly.
+[target.'cfg(target_os = "none")']
+runner = "bootimage runner"
+
+[unstable]
+# It's necessary to recompile `core` and `compiler_builtins` by demand, given the custom
+# x86_64-min-rust-os.json target does not contain precompiled libraries.
+build-std = ["core", "compiler_builtins"]
+# Rust assumes certain memory related functions available through the C library.
+# Since this OS won't have that, they will be set through compiler-builtins-mem.
+build-std-features = ["compiler-builtins-mem"]

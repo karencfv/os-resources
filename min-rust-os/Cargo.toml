@@ -5,11 +5,13 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
-# Abort on panic instead of stack unwinding.
-[profile.dev]
-panic = "abort"
-
-[profile.release]
-panic = "abort"
+# Abort on panic instead of stack unwinding. This is not necessary to add since it is already included
+# in the x86_64-min-rus-os.json target spec
+# [profile.dev]
+# panic = "abort"
+# 
+# [profile.release]
+# panic = "abort"
 
 [dependencies]
+bootloader = "0.9.8"
