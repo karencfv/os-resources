@@ -1,5 +1,7 @@
 use core::fmt;
 use core::fmt::Write;
+use lazy_static::lazy_static;
+use spin::Mutex;
 use volatile::Volatile;
 
 #[allow(dead_code)]
@@ -64,6 +66,23 @@ pub struct Writer {
     colour_code: ColourCode,
     // We need the VGA buffer reference to be valid the entirety of the program
     buffer: &'static mut Buffer,
+}
+
+// The one-time initialization of statics with non-const functions is a common problem in Rust.
+// There exists a good solution in a crate named lazy_static.lazy_static. Instead of computing
+// its value at compile time, the static laziliy initializes itself when it's accessed the first time.
+lazy_static! {
+    // To get synchronized interior mutability, users of the standard library can use Mutex.
+    // It provides mutual exclusion by blocking threads when the resource is already locked.
+    // But our basic kernel does not have any blocking support or even a concept of threads,
+    // so we can't use it either. However there is a really basic kind of mutex in computer science
+    // that requires no operating system features: the spinlock. Instead of blocking, the threads simply
+    // try to lock it again and again in a tight loop and thus burn CPU time until the mutex is free again.
+    pub static ref WRITER: Mutex<Writer> = Mutex::new(Writer {
+        column_position: 0,
+        colour_code: ColourCode::new(Colour::Pink, Colour::Black),
+        buffer: unsafe { &mut *(0xb8000 as *mut Buffer) },
+    });
 }
 
 impl fmt::Write for Writer {
@@ -141,4 +160,20 @@ pub fn print_something() {
     writer.write_string("ello ");
     writer.write_string("Wört! \n");
     write!(writer, "Print numbers {} and {}", 42, 1.0 / 3.0).unwrap();
+}
+
+#[macro_export]
+macro_rules! print {
+    ($($arg:tt)*) => ($crate::vga_buffer::_print(format_args!($($arg)*)));
+}
+
+#[macro_export]
+macro_rules! println {
+    () => ($crate::print!("\n"));
+    ($($arg:tt)*) => ($crate::print!("{}\n", format_args!($($arg)*)));
+}
+
+#[doc(hidden)]
+pub fn _print(args: fmt::Arguments) {
+    WRITER.lock().write_fmt(args).unwrap();
 }

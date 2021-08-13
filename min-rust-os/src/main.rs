@@ -17,7 +17,8 @@ mod vga_buffer;
 
 // Defining the required panic_handler attribute.
 #[panic_handler]
-fn panic(_info: &PanicInfo) -> ! {
+fn panic(info: &PanicInfo) -> ! {
+    println!("{}", info);
     loop {}
 }
 
@@ -28,7 +29,22 @@ static HELLO: &[u8] = b"Hi from the minimal OS :)";
 // this function is the entry point, since the linker looks for a function
 // named `_start` by default
 pub extern "C" fn _start() -> ! {
-    vga_buffer::print_something();
+    // vga_buffer::print_something();
+
+    use core::fmt::Write;
+    vga_buffer::WRITER
+        .lock()
+        .write_str("Allo Wört! \n")
+        .unwrap();
+    write!(
+        vga_buffer::WRITER.lock(),
+        "Print numbers {} and {} \n",
+        42,
+        1.0 / 3.0
+    )
+    .unwrap();
+
+    println!("Hello from the hand crafted println macro :)");
 
     // Manually do what the previous function does:
 
@@ -45,5 +61,8 @@ pub extern "C" fn _start() -> ! {
         }
     }
 
-    loop {}
+    panic!("Some panic from the handcrafted panic macro");
+
+    // Uncomment loop if panic removed
+    // loop {}
 }
