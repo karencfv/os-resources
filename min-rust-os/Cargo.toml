@@ -3,7 +3,17 @@ name = "min-rust-os"
 version = "0.1.0"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+# QEMU supports a special isa-debug-exit device, which provides an easy way to exit QEMU from the guest system after the tests. 
+# The bootimage runner appends the test-args to the default QEMU command for all test executables.
+# For a normal cargo run, the arguments are ignored. iobase and iosize that specify the I/O port through which
+# the device can be reached from the kernel.
+[package.metadata.bootimage]
+# The isa-debug-exit devices uses port-mapped I/O. The iobase parameter specifies on which port address the device should live
+# (0xf4 is a generally unused port on the x86's IO bus) and the iosize specifies the port size (0x04 means four bytes).
+test-args = ["-device", "isa-debug-exit,iobase=0xf4,iosize=0x04", "-serial", "stdio", "-display", "none"]
+# bootimage provides a test-success-exit-code configuration key that maps a specified exit code to the exit code 0
+test-success-exit-code = 33           # (0x10 << 1) | 1
+test-timeout = 300          # (in seconds)
 
 # Abort on panic instead of stack unwinding. This is not necessary to add since it is already included
 # in the x86_64-min-rus-os.json target spec
@@ -18,3 +28,5 @@ bootloader = "0.9.8"
 volatile = "0.2.6"
 lazy_static = { version = "1.0", features = ["spin_no_std"] }
 spin = "0.5.2"
+x86_64 = "0.14.2"
+uart_16550 = "0.2.0"

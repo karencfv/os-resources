@@ -149,6 +149,7 @@ impl Writer {
     }
 }
 
+#[allow(dead_code)]
 pub fn print_something() {
     let mut writer = Writer {
         column_position: 0,
