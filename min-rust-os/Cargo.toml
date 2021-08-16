@@ -23,6 +23,11 @@ test-timeout = 300          # (in seconds)
 # [profile.release]
 # panic = "abort"
 
+# Removing the harness is useful for files that only contain a single test, it's treated like a normal executable
+[[test]]
+name = "should_panic"
+harness = false
+
 [dependencies]
 bootloader = "0.9.8"
 volatile = "0.2.6"
