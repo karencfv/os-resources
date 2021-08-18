@@ -36,7 +36,6 @@ fn panic(info: &PanicInfo) -> ! {
     min_rust_os::test_panic_handler(info)
 }
 
-static HELLO: &[u8] = b"Hi from the minimal OS :)";
 // The no_mangling attribute disables name mangling so the function name is `start()`
 // instead of some random function name.
 #[no_mangle]
@@ -45,6 +44,34 @@ static HELLO: &[u8] = b"Hi from the minimal OS :)";
 pub extern "C" fn _start() -> ! {
     // vga_buffer::print_something();
 
+    // The following function is not necessary, it is only used to exemplify what it's like
+    // to write directly to VGA
+    write_to_vga();
+
+    println!("Hello from the hand crafted println macro :)");
+
+    // Manually do what the previous function does:
+    // write_to_vga_unsafe();
+
+    min_rust_os::init();
+
+    // invoke a breakpoint exception
+    x86_64::instructions::interrupts::int3();
+
+    #[cfg(test)]
+    test_main();
+    // After executing the tests, our test_runner returns to the test_main function,
+    // which in turn returns to our _start entry point function.
+
+    // Uncomment to panic
+    // panic!("Some panic from the handcrafted panic macro");
+
+    println!("It didn't crash!");
+    // Uncomment loop if panic removed
+    loop {}
+}
+
+fn write_to_vga() {
     // Write to BGA buffer directly
     use core::fmt::Write;
     vga_buffer::WRITER
@@ -58,11 +85,12 @@ pub extern "C" fn _start() -> ! {
         1.0 / 3.0
     )
     .unwrap();
+}
 
-    println!("Hello from the hand crafted println macro :)");
+static HELLO: &[u8] = b"Hi from the minimal OS :)";
 
-    // Manually do what the previous function does:
-
+#[allow(dead_code)]
+fn write_to_vga_unsafe() {
     // The VGA buffer is located as address 0xb8000
     let vga_buffer_addr = 0xb8000 as *mut u8;
 
@@ -75,15 +103,4 @@ pub extern "C" fn _start() -> ! {
             *vga_buffer_addr.offset(i as isize * 2 + 1) = 0xb;
         }
     }
-
-    #[cfg(test)]
-    test_main();
-    // After executing the tests, our test_runner returns to the test_main function,
-    // which in turn returns to our _start entry point function.
-
-    // Uncomment to panic
-    // panic!("Some panic from the handcrafted panic macro");
-
-    // Uncomment loop if panic removed
-    loop {}
 }
