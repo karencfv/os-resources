@@ -55,7 +55,19 @@ pub extern "C" fn _start() -> ! {
 
     min_rust_os::init();
 
-    // invoke a breakpoint exception
+    // Trigger a stack overflow
+    //  stack_overflow();
+
+    // Trigger a page fault
+    // unsafe {
+    // The 0xdeadbeef virtual address is not mapped to a physical address in the page tables, so a page fault occurs.
+    // If a page fault handler hasn't been registered in IDT, so a double fault occurs. The CPU looks at the
+    // IDT entry of the double fault handler. If this entry does not specify a handler function either
+    // the kernel boot loops.
+    //    *(0xdeadbeef as *mut u64) = 42;
+    // };
+
+    // Invoke a breakpoint exception
     x86_64::instructions::interrupts::int3();
 
     #[cfg(test)]
@@ -103,4 +115,11 @@ fn write_to_vga_unsafe() {
             *vga_buffer_addr.offset(i as isize * 2 + 1) = 0xb;
         }
     }
+}
+
+#[allow(dead_code)]
+#[allow(unconditional_recursion)]
+// For each recursion, the return address is pushed
+fn stack_overflow() {
+    stack_overflow();
 }

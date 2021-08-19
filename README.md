@@ -4,11 +4,15 @@ This repository contains several links to resources related to operating systems
 
 ## Books
 
+[Operating Systems: Three Easy Pieces](https://pages.cs.wisc.edu/~remzi/OSTEP/). The book is centred around three conceptual pieces that are fundamental to operating systems: virtualization, concurrency, and persistence.
+
 [Operating System Concepts](https://www.os-book.com/OS10/). Provides a clear description of the concepts that underlie operating systems.
 
 [Computer Systems: A Programmer's Perspective](https://www.pearson.com/us/higher-education/program/Bryant-Computer-Systems-A-Programmer-s-Perspective-3rd-Edition/PGM2476825.html?tab=overview). The aim of the text is to explain the enduring concepts underlying all computer systems, and to show the concrete ways that these ideas affect the correctness, performance, and utility of application programs.
 
 [Modern Operating Systems](https://www.pearson.com/us/higher-education/program/Tanenbaum-Modern-Operating-Systems-4th-Edition/PGM80736.html).
+
+[AMD64 Architecture Programmer’s Manual](https://www.amd.com/system/files/TechDocs/24593.pdf)
 
 [OS Dev Wiki](https://wiki.osdev.org/Main_Page). Not a book but close enough :)
 

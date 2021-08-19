@@ -28,6 +28,11 @@ test-timeout = 300          # (in seconds)
 name = "should_panic"
 harness = false
 
+# The stack overflow test will also run without a harness as it will test a double fault, which means nothing can continue execution
+[[test]]
+name = "stack_overflow"
+harness = false
+
 [dependencies]
 bootloader = "0.9.8"
 volatile = "0.2.6"
