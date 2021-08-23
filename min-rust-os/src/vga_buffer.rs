@@ -3,6 +3,7 @@ use core::fmt::Write;
 use lazy_static::lazy_static;
 use spin::Mutex;
 use volatile::Volatile;
+use x86_64::instructions::interrupts;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -176,7 +177,11 @@ macro_rules! println {
 
 #[doc(hidden)]
 pub fn _print(args: fmt::Arguments) {
-    WRITER.lock().write_fmt(args).unwrap();
+    // The without_interrupts function takes a closure and executes it in an interrupt-free environment.
+    // We use it to ensure that no interrupt can occur as long as the Mutex is locked.
+    interrupts::without_interrupts(|| {
+        WRITER.lock().write_fmt(args).unwrap();
+    });
 }
 
 #[test_case]
@@ -194,12 +199,15 @@ fn test_println_many() {
 #[test_case]
 fn test_println_output() {
     let s = "Some test string that fits on a single line";
-    println!("{}", s);
-    // The function defines a test string, prints it using println, and then iterates over the screen
-    // characters of the static WRITER, which represents the vga text buffer. Since println prints to the
-    // last screen line and then immediately appends a newline, the string should appear on line BUFFER_HEIGHT - 2
-    for (i, c) in s.chars().enumerate() {
-        let screen_char = WRITER.lock().buffer.chars[BUFFER_HEIGHT - 2][i].read();
-        assert_eq!(char::from(screen_char.ascii_character), c);
-    }
+    interrupts::without_interrupts(|| {
+        let mut writer = WRITER.lock();
+        writeln!(writer, "\n{}", s).expect("writeln failed");
+        // The function defines a test string, prints it using println, and then iterates over the screen
+        // characters of the static WRITER, which represents the vga text buffer. Since println prints to the
+        // last screen line and then immediately appends a newline, the string should appear on line BUFFER_HEIGHT - 2
+        for (i, c) in s.chars().enumerate() {
+            let screen_char = writer.buffer.chars[BUFFER_HEIGHT - 2][i].read();
+            assert_eq!(char::from(screen_char.ascii_character), c);
+        }
+    });
 }

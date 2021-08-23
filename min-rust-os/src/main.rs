@@ -68,7 +68,7 @@ pub extern "C" fn _start() -> ! {
     // };
 
     // Invoke a breakpoint exception
-    x86_64::instructions::interrupts::int3();
+    // x86_64::instructions::interrupts::int3();
 
     #[cfg(test)]
     test_main();
@@ -80,7 +80,12 @@ pub extern "C" fn _start() -> ! {
 
     println!("It didn't crash!");
     // Uncomment loop if panic removed
-    loop {}
+    loop {
+        for _ in 0..10000 {
+            use min_rust_os::print;
+            print!("-");
+        }
+    }
 }
 
 fn write_to_vga() {

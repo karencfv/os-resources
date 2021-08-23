@@ -76,6 +76,10 @@ pub fn exit_qemu(exit_code: QemuExitCode) {
 pub fn init() {
     gdt::init();
     interrupts::init_idt();
+    unsafe { interrupts::PICS.lock().initialize() };
+    // The interrupts::enable function of the x86_64 crate executes the special sti instruction
+    // (“set interrupts”) to enable external interrupts.
+    x86_64::instructions::interrupts::enable();
 }
 
 /// Entry point for `cargo test`

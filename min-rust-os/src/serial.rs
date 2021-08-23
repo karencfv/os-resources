@@ -2,6 +2,7 @@ use core::fmt::{Arguments, Write};
 use lazy_static::lazy_static;
 use spin::Mutex;
 use uart_16550::SerialPort;
+use x86_64::instructions::interrupts;
 
 // To see the test output on the console, data needs to be sent from our kernel to the host system.
 // The data could be sent over a TCP network interface. However, setting up a networking stack is a quite complex task,
@@ -19,10 +20,14 @@ lazy_static! {
 
 #[doc(hidden)]
 pub fn _print(args: Arguments) {
-    SERIAL1
-        .lock()
-        .write_fmt(args)
-        .expect("Printing to serial failed");
+    // The without_interrupts function takes a closure and executes it in an interrupt-free environment.
+    // We use it to ensure that no interrupt can occur as long as the Mutex is locked.
+    interrupts::without_interrupts(|| {
+        SERIAL1
+            .lock()
+            .write_fmt(args)
+            .expect("Printing to serial failed");
+    });
 }
 
 /// Prints to the host through the serial interface
