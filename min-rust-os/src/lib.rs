@@ -48,7 +48,7 @@ pub fn test_panic_handler(info: &PanicInfo) -> ! {
 
     // Note that we still need an endless loop after the exit_qemu call because the compiler
     // does not know that the isa-debug-exit device causes a program exit.
-    loop {}
+    hlt_loop();
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,13 +82,21 @@ pub fn init() {
     x86_64::instructions::interrupts::enable();
 }
 
-/// Entry point for `cargo test`
+pub fn hlt_loop() -> ! {
+    // The hlt assembly instruction puts the CPU in sleep mode until the next interrupt arrives.
+    // this `hlt()` function is a thin wrapper around the assembly instruction.
+    loop {
+        x86_64::instructions::hlt();
+    }
+}
+
+// Entry point for `cargo test`
 #[cfg(test)]
 #[no_mangle]
 pub extern "C" fn _start() -> ! {
     init();
     test_main();
-    loop {}
+    hlt_loop();
 }
 
 #[cfg(test)]

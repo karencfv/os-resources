@@ -2,8 +2,11 @@ use crate::gdt;
 use crate::print;
 use crate::println;
 use lazy_static::lazy_static;
+use pc_keyboard::{layouts, DecodedKey, HandleControl, Keyboard, ScancodeSet1};
 use pic8259::ChainedPics;
 use spin;
+use spin::Mutex;
+use x86_64::instructions::port::Port;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
 // With the lazy_static macro instead of evaluating a static at compile time, the macro performs
@@ -24,6 +27,7 @@ lazy_static! {
             idt.double_fault.set_handler_fn(double_fault_handler).set_stack_index(gdt::DOUBLE_FAULT_IST_INDEX);
         }
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
+        idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
         idt
     };
 }
@@ -65,6 +69,46 @@ extern "x86-interrupt" fn timer_interrupt_handler(_stack_frame: InterruptStackFr
     }
 }
 
+extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStackFrame) {
+    // read from the data port of the PS/2 controller, which is the I/O port with number 0x60
+    //    let mut port = Port::new(0x60);
+    //    let scancode: u8 = unsafe { port.read() };
+    //
+    //    // translate scancodes to keys. In this case only 1-3 will be scanned
+    //    let key = match scancode {
+    //        0x02 => Some('1'),
+    //        0x03 => Some('2'),
+    //        0x04 => Some('3'),
+    //        _ => None,
+    //    };
+    //    if let Some(key) = key {
+    //        print!("{}", key);
+    //    }
+
+    lazy_static! {
+        static ref KEYBOARD: Mutex<Keyboard<layouts::Us104Key, ScancodeSet1>> = Mutex::new(
+            Keyboard::new(layouts::Us104Key, ScancodeSet1, HandleControl::Ignore)
+        );
+    }
+    let mut keyboard = KEYBOARD.lock();
+    let mut port = Port::new(0x60);
+
+    let scancode: u8 = unsafe { port.read() };
+    if let Ok(Some(key_event)) = keyboard.add_byte(scancode) {
+        if let Some(key) = keyboard.process_keyevent(key_event) {
+            match key {
+                DecodedKey::Unicode(character) => print!("{}", character),
+                DecodedKey::RawKey(key) => print!("{:?}", key),
+            }
+        }
+    }
+
+    unsafe {
+        PICS.lock()
+            .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
+    }
+}
+
 // The default configuration of the PICs is not usable, because it sends interrupt vector numbers
 // in the range 0–15 to the CPU. These numbers are already occupied by CPU exceptions.
 // To fix this overlapping issue, we need to remap the PIC interrupts to different numbers.
@@ -82,6 +126,10 @@ pub static PICS: spin::Mutex<ChainedPics> =
 #[repr(u8)]
 pub enum InterruptIndex {
     Timer = PIC_1_OFFSET,
+    // the keyboard uses line 1 of the primary PIC. This means that it arrives at the CPU as interrupt 33 (1 + offset 32).
+    // We add this index as a new Keyboard variant to the InterruptIndex enum. We don't need to specify the value explicitly,
+    // since it defaults to the previous value plus one.
+    Keyboard,
 }
 
 impl InterruptIndex {

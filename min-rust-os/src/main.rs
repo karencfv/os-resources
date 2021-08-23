@@ -27,7 +27,7 @@ mod vga_buffer;
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
     println!("{}", info);
-    loop {}
+    min_rust_os::hlt_loop();
 }
 
 #[cfg(test)]
@@ -80,12 +80,7 @@ pub extern "C" fn _start() -> ! {
 
     println!("It didn't crash!");
     // Uncomment loop if panic removed
-    loop {
-        for _ in 0..10000 {
-            use min_rust_os::print;
-            print!("-");
-        }
-    }
+    min_rust_os::hlt_loop();
 }
 
 fn write_to_vga() {
