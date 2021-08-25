@@ -1,4 +1,5 @@
 use crate::gdt;
+use crate::hlt_loop;
 use crate::print;
 use crate::println;
 use lazy_static::lazy_static;
@@ -7,7 +8,8 @@ use pic8259::ChainedPics;
 use spin;
 use spin::Mutex;
 use x86_64::instructions::port::Port;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::registers::control::Cr2;
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 // With the lazy_static macro instead of evaluating a static at compile time, the macro performs
 // the initialization when the static is referenced the first time. Thus, we can do almost everything
@@ -28,6 +30,9 @@ lazy_static! {
         }
         idt[InterruptIndex::Timer.as_usize()].set_handler_fn(timer_interrupt_handler);
         idt[InterruptIndex::Keyboard.as_usize()].set_handler_fn(keyboard_interrupt_handler);
+
+        // Set handler for page faults
+        idt.page_fault.set_handler_fn(page_fault_handler);
         idt
     };
 }
@@ -108,6 +113,22 @@ extern "x86-interrupt" fn keyboard_interrupt_handler(_stack_frame: InterruptStac
         PICS.lock()
             .notify_end_of_interrupt(InterruptIndex::Keyboard.as_u8());
     }
+}
+
+// Create a page fault handler and register it in our IDT, so that we see a page fault exception
+// instead of a generic double fault
+extern "x86-interrupt" fn page_fault_handler(
+    stack_frame: InterruptStackFrame,
+    error_code: PageFaultErrorCode,
+) {
+    println!("EXCEPTION: PAGE FAULT");
+    // The CR2 register is automatically set by the CPU on a page fault and contains
+    // the accessed virtual address that caused the page fault.
+    println!("Accessed Address: {:?}", Cr2::read());
+    println!("Error Code: {:?}", error_code);
+    println!("{:#?}", stack_frame);
+    // Can't continue execution without resolving the page fault, so we enter a hlt_loop at the end.
+    hlt_loop();
 }
 
 // The default configuration of the PICs is not usable, because it sends interrupt vector numbers

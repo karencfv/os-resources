@@ -67,6 +67,34 @@ pub extern "C" fn _start() -> ! {
     //    *(0xdeadbeef as *mut u64) = 42;
     // };
 
+    // Test a page fault
+    // Instruction pointer that point to a code page. These are mapped read only by the bootloader.
+    // let ptr = 0x2063a4 as *mut u32;
+    // read from code page
+    //    unsafe {
+    //        let _x = *ptr;
+    //    }
+    // println!("read worked");
+    // write to a code page (cannot be done as per the above comment)
+    //    unsafe {
+    //        *ptr = 42;
+    //    }
+    //    println!("write worked");
+
+    // Accessing a page table currently active level 4 page table is stored at
+    // address 0x1000 in physical memory, as indicated by the PhysAddr wrapper type.
+    // Accessing physical memory directly is not possible when paging is active,
+    // since programs could easily circumvent memory protection and access memory of other programs otherwise.
+    // So the only way to access the table is through some virtual page that is mapped to the physical frame at address 0x1000.
+    // This problem of creating mappings for page table frames is a general problem, since the kernel
+    // needs to access the page tables regularly, for example when allocating a stack for a new thread.
+    use x86_64::registers::control::Cr3;
+    let (level_4_page_table, _) = Cr3::read();
+    println!(
+        "Level 4 page table at: {:?}",
+        level_4_page_table.start_address()
+    );
+
     // Invoke a breakpoint exception
     // x86_64::instructions::interrupts::int3();
 

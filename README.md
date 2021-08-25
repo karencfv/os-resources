@@ -16,6 +16,8 @@ This repository contains several links to resources related to operating systems
 
 [OS Dev Wiki](https://wiki.osdev.org/Main_Page). Not a book but close enough :)
 
+[Computer Science from the Bottom Up](https://www.bottomupcs.com/). This book explains operating systems fundamentals through to how applications are complied and executed.
+
 ## Tutorials
 
 [Writing a Simple Operating System from Scratch](https://www.cs.bham.ac.uk/~exr/lectures/opsys/10_11/lectures/os-dev.pdf).  Document that will give you a hands-on experience of low-level programming, how operating systems are written, and the kind of problems they must solve.
