@@ -12,7 +12,10 @@
 // something different than main through the reexport_test_harness_main attribute.
 #![reexport_test_harness_main = "test_main"]
 
+use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+use min_rust_os::memory::active_level_4_table;
+use x86_64::{structures::paging::PageTable, VirtAddr};
 
 mod vga_buffer;
 
@@ -36,12 +39,12 @@ fn panic(info: &PanicInfo) -> ! {
     min_rust_os::test_panic_handler(info)
 }
 
-// The no_mangling attribute disables name mangling so the function name is `start()`
-// instead of some random function name.
-#[no_mangle]
-// this function is the entry point, since the linker looks for a function
-// named `_start` by default
-pub extern "C" fn _start() -> ! {
+// This macro defines the real lower level `_start` entry point.
+// It provides a type-checked way to define a Rust function as the entry point,
+// so there is no need to define an `extern "C" fn _start()` function.
+entry_point!(kernel_main);
+
+fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // vga_buffer::print_something();
 
     // The following function is not necessary, it is only used to exemplify what it's like
@@ -94,6 +97,32 @@ pub extern "C" fn _start() -> ! {
         "Level 4 page table at: {:?}",
         level_4_page_table.start_address()
     );
+
+    // Use memory module to traverse the entries of the level 4 table manually:
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
+
+    for (i, entry) in l4_table.iter().enumerate() {
+        if !entry.is_unused() {
+            println!("L4 entry {}: {:?}", i, entry);
+
+            // To traverse the page tables further and take a look at a level 3 table,
+            // we can take the mapped frame of an entry convert it to a virtual address again:
+
+            // Get physical address and convert it
+            let phys = entry.frame().unwrap().start_address();
+            let virt = phys.as_u64() + boot_info.physical_memory_offset;
+            let ptr = VirtAddr::new(virt).as_mut_ptr();
+            let l3_table: &PageTable = unsafe { &*ptr };
+
+            // print non-empty entries of level 3 table
+            for (i, entry) in l3_table.iter().enumerate() {
+                if !entry.is_unused() {
+                    println!("L3 entry {}: {:?}", i, entry);
+                }
+            }
+        }
+    }
 
     // Invoke a breakpoint exception
     // x86_64::instructions::interrupts::int3();
