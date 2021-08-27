@@ -14,8 +14,10 @@
 
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
-use min_rust_os::memory::active_level_4_table;
-use x86_64::{structures::paging::PageTable, VirtAddr};
+use min_rust_os::memory;
+// use min_rust_os::memory::{active_level_4_table, translate_addr};
+use x86_64::{structures::paging::Translate, VirtAddr};
+// use x86_64::structures::paging::PageTable;
 
 mod vga_buffer;
 
@@ -91,37 +93,57 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // So the only way to access the table is through some virtual page that is mapped to the physical frame at address 0x1000.
     // This problem of creating mappings for page table frames is a general problem, since the kernel
     // needs to access the page tables regularly, for example when allocating a stack for a new thread.
-    use x86_64::registers::control::Cr3;
-    let (level_4_page_table, _) = Cr3::read();
-    println!(
-        "Level 4 page table at: {:?}",
-        level_4_page_table.start_address()
-    );
+    //    use x86_64::registers::control::Cr3;
+    //    let (level_4_page_table, _) = Cr3::read();
+    //    println!(
+    //        "Level 4 page table at: {:?}",
+    //        level_4_page_table.start_address()
+    //    );
+    //
+    //    // Use memory module to traverse the entries of the level 4 table manually:
+    //    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    //    let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
+    //
+    //    for (i, entry) in l4_table.iter().enumerate() {
+    //        if !entry.is_unused() {
+    //            println!("L4 entry {}: {:?}", i, entry);
+    //
+    //            // To traverse the page tables further and take a look at a level 3 table,
+    //            // we can take the mapped frame of an entry convert it to a virtual address again:
+    //
+    //            // Get physical address and convert it
+    //            let phys = entry.frame().unwrap().start_address();
+    //            let virt = phys.as_u64() + boot_info.physical_memory_offset;
+    //            let ptr = VirtAddr::new(virt).as_mut_ptr();
+    //            let l3_table: &PageTable = unsafe { &*ptr };
+    //
+    //            // print non-empty entries of level 3 table
+    //            for (i, entry) in l3_table.iter().enumerate() {
+    //                if !entry.is_unused() {
+    //                    println!("L3 entry {}: {:?}", i, entry);
+    //                }
+    //            }
+    //        }
+    //    }
 
-    // Use memory module to traverse the entries of the level 4 table manually:
+    // Use translation function
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let l4_table = unsafe { active_level_4_table(phys_mem_offset) };
-
-    for (i, entry) in l4_table.iter().enumerate() {
-        if !entry.is_unused() {
-            println!("L4 entry {}: {:?}", i, entry);
-
-            // To traverse the page tables further and take a look at a level 3 table,
-            // we can take the mapped frame of an entry convert it to a virtual address again:
-
-            // Get physical address and convert it
-            let phys = entry.frame().unwrap().start_address();
-            let virt = phys.as_u64() + boot_info.physical_memory_offset;
-            let ptr = VirtAddr::new(virt).as_mut_ptr();
-            let l3_table: &PageTable = unsafe { &*ptr };
-
-            // print non-empty entries of level 3 table
-            for (i, entry) in l3_table.iter().enumerate() {
-                if !entry.is_unused() {
-                    println!("L3 entry {}: {:?}", i, entry);
-                }
-            }
-        }
+    let mapper = unsafe { memory::init(phys_mem_offset) };
+    let addresses = [
+        // identity-mapped vga buffer page
+        0xb8000,
+        // some code page
+        0x201008,
+        // some stack page
+        0x0100_0020_1a10,
+        // virtual address mapped to a physical address 0
+        boot_info.physical_memory_offset,
+    ];
+    for &address in &addresses {
+        let virt = VirtAddr::new(address);
+        //let phys = unsafe { translate_addr(virt, phys_mem_offset) };
+        let phys = mapper.translate_addr(virt);
+        println!("{:?} -> {:?}", virt, phys);
     }
 
     // Invoke a breakpoint exception
