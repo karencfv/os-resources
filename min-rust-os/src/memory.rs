@@ -29,7 +29,9 @@
 use x86_64::{
     registers::control::Cr3,
     structures::paging::page_table::FrameError,
-    structures::paging::{OffsetPageTable, PageTable},
+    structures::paging::{
+        FrameAllocator, Mapper, OffsetPageTable, Page, PageTable, PhysFrame, Size4KiB,
+    },
     PhysAddr, VirtAddr,
 };
 
@@ -104,4 +106,41 @@ pub unsafe fn init(physical_memory_offset: VirtAddr) -> OffsetPageTable<'static>
     // The bootloader maps the complete physical memory at a virtual address specified by
     // the physical_memory_offset variable, so we can use the OffsetPageTable type.
     OffsetPageTable::new(level_4_table, physical_memory_offset)
+}
+
+// maps a given virtual page to 0xb8000, the physical frame of the VGA text buffer.
+// We choose that frame because it allows us to easily test if the mapping was created correctly:
+// We just need to write to the newly mapped page and see whether we see the write appear on the screen.
+pub fn create_example_mapping(
+    page: Page,
+    mapper: &mut OffsetPageTable,
+    // The trait is generic over the PageSize trait to work with both standard 4KiB pages and huge
+    // 2MiB/1GiB pages. We only want to create a 4KiB mapping, so we set the generic parameter to Size4KiB
+    frame_allocator: &mut impl FrameAllocator<Size4KiB>,
+) {
+    use x86_64::structures::paging::PageTableFlags as Flags;
+
+    let frame = PhysFrame::containing_address(PhysAddr::new(0xb8000));
+    // set the PRESENT flag because it is required for all valid entries
+    // and the WRITABLE flag to make the mapped page writeable.
+    let flags = Flags::PRESENT | Flags::WRITABLE;
+
+    let map_to_result = unsafe {
+        // FIXME: this is not safe, because the caller must ensure that the frame is not already in use.
+        // The reason for this is that mapping the same frame twice could result in undefined behaviour.
+        // only using for testing
+        mapper.map_to(page, frame, flags, frame_allocator)
+    };
+    map_to_result.expect("map_to failed").flush();
+}
+
+// A dummy FrameAllocator that always returns `None`
+pub struct EmptyFrameAllocator;
+
+// Implementing the FrameAllocator is unsafe because the implementer must guarantee
+// that the allocator yields only unused frames. Otherwise undefined behaviour might occur
+unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
+    fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        None
+    }
 }
