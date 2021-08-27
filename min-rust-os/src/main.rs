@@ -15,10 +15,11 @@
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
 use min_rust_os::memory;
-use min_rust_os::memory::{active_level_4_table, translate_addr};
+use min_rust_os::memory::BootInfoFrameAllocator;
+// use min_rust_os::memory::{active_level_4_table, translate_addr};
 use x86_64::structures::paging::Page;
-use x86_64::{structures::paging::Translate, VirtAddr};
-// use x86_64::structures::paging::PageTable;
+use x86_64::VirtAddr;
+// use x86_64::structures::paging::{Translate, PageTable};
 
 mod vga_buffer;
 
@@ -127,19 +128,7 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     //        }
     //    }
 
-    // creating a new mapping for a previously unmapped page. THIS IS EXPERIMENTAL AND UNSAFE
-    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
-    let mut mapper = unsafe { memory::init(phys_mem_offset) };
-    let mut frame_allocator = memory::EmptyFrameAllocator;
-    // map unused page using address 0. Normally, this page should stay unused to guarantee
-    // that dereferencing a null pointer causes a page fault, so we know that the bootloader leaves it unmapped.
-    let page = Page::containing_address(VirtAddr::new(0));
-    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
-    // Write string `New!` to the screen through the new mapping
-    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
-
-    // Use translation function
+    // Use translation function to manually translate addresses
     //    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     //    let mapper = unsafe { memory::init(phys_mem_offset) };
     //    let addresses = [
@@ -158,6 +147,21 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     //        let phys = mapper.translate_addr(virt);
     //        println!("{:?} -> {:?}", virt, phys);
     //    }
+
+    // creating a new mapping for a previously unmapped page. THIS IS EXPERIMENTAL AND UNSAFE
+    let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
+    let mut mapper = unsafe { memory::init(phys_mem_offset) };
+    // The memory map can be queried from the BIOS or UEFI firmware, but only very early in the boot process.
+    // For this reason, it must be provided by the bootloader because there is no way for the kernel to retrieve it later.
+    let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) }; // memory::EmptyFrameAllocator;
+
+    // map unused page using address 0. Normally, this page should stay unused to guarantee
+    // that dereferencing a null pointer causes a page fault, so we know that the bootloader leaves it unmapped.
+    let page = Page::containing_address(VirtAddr::new(0));
+    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+    // Write string `New!` to the screen through the new mapping
+    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
 
     // Invoke a breakpoint exception
     // x86_64::instructions::interrupts::int3();

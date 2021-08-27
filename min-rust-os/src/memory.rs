@@ -26,6 +26,7 @@
 // let frame = recursive_page_table.translate_page(page);
 // frame.map(|frame| frame.start_address() + u64::from(addr.page_offset()))
 
+use bootloader::bootinfo::{MemoryMap, MemoryRegionType};
 use x86_64::{
     registers::control::Cr3,
     structures::paging::page_table::FrameError,
@@ -142,5 +143,66 @@ pub struct EmptyFrameAllocator;
 unsafe impl FrameAllocator<Size4KiB> for EmptyFrameAllocator {
     fn allocate_frame(&mut self) -> Option<PhysFrame> {
         None
+    }
+}
+
+// FrameAllocator that returns usable frames from the bootloader's memory map
+pub struct BootInfoFrameAllocator {
+    memory_map: &'static MemoryMap,
+    next: usize,
+}
+
+impl BootInfoFrameAllocator {
+    // Create a FrameAllocator from the passed memory map.
+    // The init function initializes a BootInfoFrameAllocator with a given memory map.
+    // The next field is initialized with 0 and will be increased for every frame allocation
+    // to avoid returning the same frame twice. Since we don't know if the usable frames
+    // of the memory map were already used somewhere else, our init function must be unsafe
+    // to require additional guarantees from the caller.
+    pub unsafe fn init(memory_map: &'static MemoryMap) -> Self {
+        BootInfoFrameAllocator {
+            memory_map,
+            next: 0,
+        }
+    }
+
+    // Auxiliary method that converts the memory map into an iterator of usable frames:
+    // The return type of the function uses the impl Trait feature.
+    // This way, we can specify that we return some type that implements the Iterator trait with
+    // item type PhysFrame, but don't need to name the concrete return type.
+    // This is important here because we can't name the concrete type since it depends on unnamable closure types.
+    fn usable_frames(&self) -> impl Iterator<Item = PhysFrame> {
+        // get usable regions from memory map
+        let regions = self.memory_map.iter();
+        // Then we use the filter method to skip any reserved or otherwise unavailable regions.
+        // The bootloader updates the memory map for all the mappings it creates, so frames that
+        // are used by our kernel (code, data or stack) or to store the boot information are
+        // already marked as InUse or similar. Thus we can be sure that Usable frames are not used somewhere else.
+        let usable_regions = regions.filter(|r| r.region_type == MemoryRegionType::Usable);
+        // map each region to its address range
+        let addr_ranges = usable_regions.map(|r| r.range.start_addr()..r.range.end_addr());
+        // Next, we use flat_map to transform the address ranges into an iterator of frame start addresses,
+        // choosing every 4096th address using step_by. Since 4096 bytes (= 4 KiB) is the page size,
+        // we get the start address of each frame. The bootloader page aligns all usable memory areas
+        // so that we don't need any alignment or rounding code here. By using flat_map instead of map,
+        // we get an Iterator<Item = u64> instead of an Iterator<Item = Iterator<Item = u64>>
+        let frame_addresses = addr_ranges.flat_map(|r| r.step_by(4096));
+        // create `PhysFrame` types from the start addresses
+        frame_addresses.map(|addr| PhysFrame::containing_address(PhysAddr::new(addr)))
+    }
+}
+
+unsafe impl FrameAllocator<Size4KiB> for BootInfoFrameAllocator {
+    // This implementation is not quite optimal since it recreates the usable_frame allocator on every allocation.
+    // It would be better to directly store the iterator as a struct field instead. Then we wouldn't need
+    // the nth method and could just call next on every allocation. The problem with this approach is that
+    // it's not possible to store an impl Trait type in a struct field currently.
+    // It might work someday when named existential types are fully implemented.
+    fn allocate_frame(&mut self) -> Option<PhysFrame> {
+        // First use the usable_frames method to get an iterator of usable frames from the memory map.
+        // Then, use the Iterator::nth function to get the frame with index self.next (thereby skipping (self.next - 1) frames)
+        let frame = self.usable_frames().nth(self.next);
+        self.next += 1;
+        frame
     }
 }
