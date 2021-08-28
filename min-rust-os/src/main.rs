@@ -12,12 +12,16 @@
 // something different than main through the reexport_test_harness_main attribute.
 #![reexport_test_harness_main = "test_main"]
 
+extern crate alloc;
+
+use alloc::{boxed::Box, rc::Rc, vec, vec::Vec};
 use bootloader::{entry_point, BootInfo};
 use core::panic::PanicInfo;
+use min_rust_os::allocator;
 use min_rust_os::memory;
 use min_rust_os::memory::BootInfoFrameAllocator;
 // use min_rust_os::memory::{active_level_4_table, translate_addr};
-use x86_64::structures::paging::Page;
+// use x86_64::structures::paging::Page;
 use x86_64::VirtAddr;
 // use x86_64::structures::paging::{Translate, PageTable};
 
@@ -148,20 +152,48 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     //        println!("{:?} -> {:?}", virt, phys);
     //    }
 
-    // creating a new mapping for a previously unmapped page. THIS IS EXPERIMENTAL AND UNSAFE
+    // Create a new mapping for a previously unmapped page. THIS IS EXPERIMENTAL AND UNSAFE
     let phys_mem_offset = VirtAddr::new(boot_info.physical_memory_offset);
     let mut mapper = unsafe { memory::init(phys_mem_offset) };
     // The memory map can be queried from the BIOS or UEFI firmware, but only very early in the boot process.
     // For this reason, it must be provided by the bootloader because there is no way for the kernel to retrieve it later.
     let mut frame_allocator = unsafe { BootInfoFrameAllocator::init(&boot_info.memory_map) }; // memory::EmptyFrameAllocator;
 
-    // map unused page using address 0. Normally, this page should stay unused to guarantee
+    // Manually map unused page using address 0. Normally, this page should stay unused to guarantee
     // that dereferencing a null pointer causes a page fault, so we know that the bootloader leaves it unmapped.
-    let page = Page::containing_address(VirtAddr::new(0));
-    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
+    //    let page = Page::containing_address(VirtAddr::new(0));
+    //    memory::create_example_mapping(page, &mut mapper, &mut frame_allocator);
     // Write string `New!` to the screen through the new mapping
-    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
-    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+    //    let page_ptr: *mut u64 = page.start_address().as_mut_ptr();
+    //    unsafe { page_ptr.offset(400).write_volatile(0x_f021_f077_f065_f04e) };
+
+    // Initialise the heap memory region
+    allocator::init_heap(&mut mapper, &mut frame_allocator).expect("heap initialisation failed");
+
+    // Use a box to allocate a value to the heap
+    let heap_value = Box::new(41);
+    println!("Heap value at {:p}", heap_value);
+
+    // Create dynamically sized vector
+    let mut vec = Vec::new();
+    for i in 0..500 {
+        vec.push(i);
+    }
+    println!("vec at {:p}", vec.as_slice());
+
+    // Create a reference counted vector which will be freed when count reaches 0
+    let reference_counted = Rc::new(vec![1, 2, 3]);
+    let cloned_reference = reference_counted.clone();
+    println!(
+        "Current reference count is {}",
+        Rc::strong_count(&cloned_reference)
+    );
+    // drop one of the instances
+    core::mem::drop(reference_counted);
+    println!(
+        "Reference count is now: {}",
+        Rc::strong_count(&cloned_reference)
+    );
 
     // Invoke a breakpoint exception
     // x86_64::instructions::interrupts::int3();
