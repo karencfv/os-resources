@@ -34,9 +34,11 @@ This repository contains several links to resources related to operating systems
 
 ## Alternative OSs
 
-[seL4 Microkernel](https://sel4.systems/) High-assurance, high-performance operating system microkernel. It is unique because of its comprehensive formal verification, without compromising performance. It is meant to be used as a trustworthy foundation for building safety- and security-critical systems..
+[seL4 Microkernel](https://sel4.systems/). High-assurance, high-performance operating system microkernel. It is unique because of its comprehensive formal verification, without compromising performance. It is meant to be used as a trustworthy foundation for building safety- and security-critical systems..
 
-[HermitCore](https://hermitcore.org/) Novel unikernel operating system targeting a scalable and predictable runtime behavior for HPC and cloud environments.
+[HermitCore](https://hermitcore.org/). Novel unikernel operating system targeting a scalable and predictable runtime behavior for HPC and cloud environments.
+
+[Tock](https://www.tockos.org/). An embedded operating system designed for running multiple concurrent, mutually distrustful applications on low-memory and low-power microcontrollers.
 
 ## Videos
 
