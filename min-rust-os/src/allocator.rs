@@ -1,12 +1,15 @@
 use alloc::alloc::{GlobalAlloc, Layout};
+use bump::BumpAllocator;
 use core::ptr::null_mut;
-use linked_list_allocator::LockedHeap;
+// use linked_list_allocator::LockedHeap;
 use x86_64::{
     structures::paging::{
         mapper::MapToError, FrameAllocator, Mapper, Page, PageTableFlags, Size4KiB,
     },
     VirtAddr,
 };
+
+pub mod bump;
 
 pub struct Dummy;
 
@@ -29,7 +32,7 @@ unsafe impl GlobalAlloc for Dummy {
 // The struct is named LockedHeap because it uses the spinning_top::Spinlock type for synchronization.
 // This is required because multiple threads could access the ALLOCATOR static at the same time.
 // Create an allocator without any backing memory.
-static ALLOCATOR: LockedHeap = LockedHeap::empty(); // Dummy = Dummy;
+static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new()); // using linked_list_allocator LockedHeap = LockedHeap::empty(); // Dummy = Dummy;
 
 // Define a virtual memory region for the heap. Any virtual address range is fine as long as it's
 // not already used for a different memory region. By using `0x_4444_4444_0000` it will be easy
@@ -80,4 +83,51 @@ pub fn init_heap(
     unsafe { ALLOCATOR.lock().init(HEAP_START, HEAP_SIZE) };
 
     Ok(())
+}
+
+// A wrapper around a spin::Mutex to permit trait implementations
+pub struct Locked<A> {
+    inner: spin::Mutex<A>,
+}
+
+// The type is a generic wrapper around a spin::Mutex<A>. It imposes no restrictions on the wrapped type A,
+// so it can be used to wrap all kinds of types, not just allocators. It provides a simple new constructor
+// function that wraps a given value. For convenience, it also provides a lock function that calls lock on
+// the wrapped Mutex. Since the Locked type is general enough to be useful for other allocator implementations too,
+// we put it in the parent allocator module.
+impl<A> Locked<A> {
+    pub const fn new(inner: A) -> Self {
+        Locked {
+            inner: spin::Mutex::new(inner),
+        }
+    }
+
+    pub fn lock(&self) -> spin::MutexGuard<A> {
+        self.inner.lock()
+    }
+}
+
+// Align the given address `addr` upwards to alignment `align`.
+// fn align_up(addr: usize, align: usize) -> usize {
+//     let remainder = addr % align;
+//     if remainder == 0 {
+//         addr // addr already aligned
+//     } else {
+//         addr - remainder + align
+//     }
+// }
+
+// Requires that `align` is a power of two.
+// This method utilizes that the GlobalAlloc trait guarantees that align is always a power of two.
+// This makes it possible to create a bitmask to align the address in a very efficient way.
+fn align_up(addr: usize, align: usize) -> usize {
+    // Since align is a power of two, its binary representation has only a single bit set (e.g. 0b000100000).
+    // This means that align - 1 has all the lower bits set (e.g. 0b00011111).
+    // By creating the bitwise NOT through the ! operator, we get a number that has all the bits set
+    // except for the bits lower than align (e.g. 0b…111111111100000).
+    // By performing a bitwise AND on an address and `!(align - 1)`, we align the address downwards.
+    // This works by clearing all the bits that are lower than align.
+    // Since we want to align upwards instead of downwards, we increase the addr by align - 1 before performing the bitwise AND.
+    // This way, already aligned addresses remain the same while non-aligned addresses are rounded to the next alignment boundary.
+    (addr + align - 1) & !(align - 1)
 }
