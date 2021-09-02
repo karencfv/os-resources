@@ -1,6 +1,7 @@
 use alloc::alloc::{GlobalAlloc, Layout};
-use bump::BumpAllocator;
+// use bump::BumpAllocator;
 use core::ptr::null_mut;
+use linked_list::LinkedListAllocator;
 // use linked_list_allocator::LockedHeap;
 use x86_64::{
     structures::paging::{
@@ -9,7 +10,8 @@ use x86_64::{
     VirtAddr,
 };
 
-pub mod bump;
+// pub mod bump;
+pub mod linked_list;
 
 pub struct Dummy;
 
@@ -32,7 +34,9 @@ unsafe impl GlobalAlloc for Dummy {
 // The struct is named LockedHeap because it uses the spinning_top::Spinlock type for synchronization.
 // This is required because multiple threads could access the ALLOCATOR static at the same time.
 // Create an allocator without any backing memory.
-static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new()); // using linked_list_allocator LockedHeap = LockedHeap::empty(); // Dummy = Dummy;
+// Using bump allocator
+// static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new()); // using linked_list_allocator external crate LockedHeap = LockedHeap::empty(); // Dummy = Dummy;
+static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
 
 // Define a virtual memory region for the heap. Any virtual address range is fine as long as it's
 // not already used for a different memory region. By using `0x_4444_4444_0000` it will be easy
