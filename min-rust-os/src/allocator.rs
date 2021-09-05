@@ -1,7 +1,8 @@
 use alloc::alloc::{GlobalAlloc, Layout};
 // use bump::BumpAllocator;
 use core::ptr::null_mut;
-use linked_list::LinkedListAllocator;
+use fixed_size_block::FixedSizeBlockAllocator;
+// use linked_list::LinkedListAllocator;
 // use linked_list_allocator::LockedHeap;
 use x86_64::{
     structures::paging::{
@@ -11,7 +12,8 @@ use x86_64::{
 };
 
 // pub mod bump;
-pub mod linked_list;
+pub mod fixed_size_block;
+// pub mod linked_list;
 
 pub struct Dummy;
 
@@ -36,7 +38,8 @@ unsafe impl GlobalAlloc for Dummy {
 // Create an allocator without any backing memory.
 // Using bump allocator
 // static ALLOCATOR: Locked<BumpAllocator> = Locked::new(BumpAllocator::new()); // using linked_list_allocator external crate LockedHeap = LockedHeap::empty(); // Dummy = Dummy;
-static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+// static ALLOCATOR: Locked<LinkedListAllocator> = Locked::new(LinkedListAllocator::new());
+static ALLOCATOR: Locked<FixedSizeBlockAllocator> = Locked::new(FixedSizeBlockAllocator::new());
 
 // Define a virtual memory region for the heap. Any virtual address range is fine as long as it's
 // not already used for a different memory region. By using `0x_4444_4444_0000` it will be easy
@@ -121,6 +124,7 @@ impl<A> Locked<A> {
 //     }
 // }
 
+#[allow(dead_code)]
 // Requires that `align` is a power of two.
 // This method utilizes that the GlobalAlloc trait guarantees that align is always a power of two.
 // This makes it possible to create a bitmask to align the address in a very efficient way.
