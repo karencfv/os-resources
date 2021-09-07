@@ -251,3 +251,15 @@ fn write_to_vga_unsafe() {
 fn stack_overflow() {
     stack_overflow();
 }
+
+// The async_number function is an async fn, so the compiler transforms it into a
+// state machine that implements Future. Since the function only returns 42,
+// the resulting future will directly return Poll::Ready(42) on the first poll call
+async fn async_number() -> u32 {
+    42
+}
+
+async fn example_task() {
+    let number = async_number().await;
+    println!("async number: {}", number);
+}
