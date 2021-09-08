@@ -2,6 +2,8 @@ use alloc::boxed::Box;
 use core::task::{Context, Poll};
 use core::{future::Future, pin::Pin};
 
+pub mod simple_executor;
+
 // The Task struct is a newtype wrapper around a pinned, heap allocated,
 // and dynamically dispatched future with the empty type () as output.
 // The dyn keyword indicates that we store a trait object in the Box.
