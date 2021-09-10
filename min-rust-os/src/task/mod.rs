@@ -2,6 +2,7 @@ use alloc::boxed::Box;
 use core::task::{Context, Poll};
 use core::{future::Future, pin::Pin};
 
+pub mod keyboard;
 pub mod simple_executor;
 
 // The Task struct is a newtype wrapper around a pinned, heap allocated,
