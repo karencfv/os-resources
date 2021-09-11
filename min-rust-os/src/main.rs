@@ -20,8 +20,9 @@ use core::panic::PanicInfo;
 use min_rust_os::allocator;
 use min_rust_os::memory;
 use min_rust_os::memory::BootInfoFrameAllocator;
-use min_rust_os::task::keyboard;
-use min_rust_os::task::{simple_executor::SimpleExecutor, Task};
+use min_rust_os::task::executor::Executor;
+use min_rust_os::task::{keyboard, Task};
+// use min_rust_os::task::{simple_executor::SimpleExecutor};
 // use min_rust_os::memory::{active_level_4_table, translate_addr};
 // use x86_64::structures::paging::Page;
 use x86_64::VirtAddr;
@@ -201,7 +202,8 @@ fn kernel_main(boot_info: &'static BootInfo) -> ! {
     // x86_64::instructions::interrupts::int3();
 
     // create async tasks (or green threads)
-    let mut executor = SimpleExecutor::new();
+    // let mut executor = SimpleExecutor::new();
+    let mut executor = Executor::new();
     executor.spawn(Task::new(example_task()));
     executor.spawn(Task::new(keyboard::print_keypresses()));
     executor.run();
